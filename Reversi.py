@@ -16,9 +16,9 @@ AUTHOR = 'Jenna Cryan'  # author
 PROGNAME = 'reversi'    # program executable name
 VRSNSTR = 'Name     : ' + PROGNAME + '\n Version : ' + str(VERSION) + '\n Author  : ' + AUTHOR     # version info
 
-LIGHT = 'L'             # represents a light tile
-DARK = 'D'              # represents a dark tile
-BLANK = ' '             # represents a blank tile
+LIGHT = 'L'             # represents a light disk
+DARK = 'D'              # represents a dark disk
+BLANK = ' '             # represents a blank disk
 
 
 # simulates a game of Reversi
@@ -41,28 +41,10 @@ class Reversi:
             self.human = Player('Dark', 'human')
             self.current_player = self.human
 
-    # switches current player from human to computer or vice versa
-    def switch_player(self):
-        if self.current_player is self.computer:
-            self.current_player = self.human
-        else:
-            self.current_player = self.computer
+        # add starting pieces to players plays lists, respectively
+        self.human.add_initial_moves(self.size)
+        self.computer.add_initial_moves(self.size)
 
-
-# def check_move(self, row, col):
-    #     if self.board[row + 1][col] is DARK or self.board[row + 1][col] is DARK
-
-    # prompts opponent for a move
-    def get_move(self):
-        move = input('play < move > : ')
-        char = move[0].isalpha() and move[0] < chr(ord(self.size))
-        num = move[1].isdigit() and move[1] < self.size
-        while not char or not num:  # or not valid:
-            move = input('Invalid move : ' + move + '\nplay < letter >< number > : ')
-            char = move[0].isalpha() and move[0] < chr(ord(self.size))
-            num = move[1].isdigit() and move[1] < self.size
-            # valid = self.check_move(move[0], move[1])
-        return move
 
     # displays information about last move made, whose turn is next, + current score
     def display_info(self):
@@ -71,12 +53,52 @@ class Reversi:
         print 'Score: ' + self.computer.color + ' ' + str(self.computer.score) \
               + ' - ' + self.human.color + ' ' + str(self.human.score)
 
+
+    # switches current player from human to computer or vice versa
+    def switch_player(self):
+        if self.current_player is self.computer:
+            self.current_player = self.human
+        else:
+            self.current_player = self.computer
+
+
+    def check_move(self, row, col):
+        # check move is into valid neighbor space
+        if (row, col) not in self.board.current_neighbs:
+            return False
+        else:
+            # check for disks in straight lines
+            scores = self.board.check_bounds(row, col, self.current_player.color)
+
+            if len(scores) is 0:
+                return False
+            else:
+                return True
+
+
+    # prompts opponent for a move
+    def get_move(self):
+        move = input('play < move > : ')
+        # check row is character and in range for board size
+        char = move[0].isalpha() and move[0] < chr(ord(self.size))
+        # check column is number and in range for board size
+        num = move[1].isdigit() and move[1] < self.size
+        # check move is valid for current game board
+        valid = self.check_move(move[0], move[1])
+        while not char or not num or not valid:
+            move = input('Invalid move : ' + move + '\nplay < letter >< number > : ')
+            char = move[0].isalpha() and move[0] < chr(ord(self.size))
+            num = move[1].isdigit() and move[1] < self.size
+            valid = self.check_move(move[0], move[1])
+        return move
+
+
     # initializes game play with opponent
     def play(self):
         logger.info('Welcome to Reversi!')
         logger.info('')
         self.playing = True
-        self.board.clear_board()
+        self.board.init_game()
         # start a new game
         while self.playing:
             self.board.display_board()
@@ -88,7 +110,7 @@ class Reversi:
             # else:
             #     row, col = self.make_move()
             # # set move on game board + switch players
-            # self.set_move(row, col)
+            # self.board.set_move(row, col)
             # self.switch_player()
 
 
@@ -96,20 +118,23 @@ class Reversi:
 class Board:
     size = 8
     board = []
+    light = []
+    dark = []
+    current_neighbs = set()
 
     # initialize game board of size n
     def __init__(self, n):
         self.size = n
-        self.board = self.new_game_board()
+        self.board = self.init_board()
 
     # create a new game board, initially cleared out
-    def new_game_board(self):
+    def init_board(self):
         for i in range(self.size):
-            self.board.append([Tile()] * self.size)
+            self.board.append([Disk()] * self.size)
         return self.board
 
     # clears out game board for a new game, with initial center spaces
-    def clear_board(self):
+    def init_game(self):
         # clear board
         for x in range(self.size):
             for y in range(self.size):
@@ -123,7 +148,186 @@ class Board:
         self.board[center_1][center_2].color = DARK
         self.board[center_2][center_1].color = DARK
 
+        self.get_neighbors(center_1, center_1)
+        self.get_neighbors(center_2, center_2)
+        self.get_neighbors(center_1, center_2)
+        self.get_neighbors(center_2, center_1)
+
         return self.board
+
+    # def add_initial_moves(self, size):
+    #     if self.color is 'Dark':
+    #         self.plays.append((size / 2 - 1, size / 2))
+    #         self.plays.append((size / 2, size / 2 - 1))
+    #     else:
+    #         self.plays.append((size / 2, size / 2))
+    #         self.plays.append((size / 2 - 1, size / 2 - 1))
+
+    # def set_move(self, row, col):
+    #     # ** add play to current_player plays list
+    #     # ** remove any flipped disks from opposing plays list
+    #     # ** remove from neighbors list
+    #     # ** update board, flip disks as needed
+
+    def set_move(self, row, col, color):
+        if color is LIGHT:
+            self.light.append((row, col))
+        else:
+            self.dark.append((row, col))
+
+        if self.board[row][col].color is not BLANK:
+            if self.board[row][col].color is LIGHT:
+                self.light.remove((row, col))
+            else:
+                self.dark.remove((row, col))
+        self.board[row][col].color = color
+        self.board.current_neighbs.remove((row, col))
+
+
+    # adds new neighbors to set
+    #       +---+---+---+
+    #       | 5 | 4 | 3 |
+    #       +---+---+---+
+    #       | 6 | X | 2 |
+    #       +---+---+---+
+    #       | 7 | 0 | 1 |
+    #       +---+---+---+
+    def get_neighbors(self, row, col):
+        # ( 0 ) check S neighbor
+        if self.board[row + 1][col].blank is True:
+            self.current_neighbs.add((row + 1, col))
+        # ( 1 ) check SE neighbor
+        if self.board[row + 1][col + 1].blank is True:
+            self.current_neighbs.add((row + 1, col + 1))
+        # ( 2 ) check E neighbor
+        if self.board[row][col + 1].blank is True:
+            self.current_neighbs.add((row, col + 1))
+        # ( 3 ) check NE neighbor
+        if self.board[row - 1][col + 1].blank is True:
+            self.current_neighbs.add((row - 1, col + 1))
+        # ( 4 ) check N neighbor
+        if self.board[row - 1][col].blank is True:
+            self.current_neighbs.add((row - 1, col))
+        # ( 5 ) check NW neighbor
+        if self.board[row - 1][col - 1].blank is True:
+            self.current_neighbs.add((row - 1, col - 1))
+        # ( 6 ) check W neighbor
+        if self.board[row][col - 1].blank is True:
+            self.current_neighbs.add((row, col - 1))
+        # ( 7 ) check SW neighbor
+        if self.board[row + 1][col - 1].blank is True:
+            self.current_neighbs.add((row + 1, col - 1))
+
+
+    # adds bounding tiles to list
+    #       +---+---+---+
+    #       | 5 | 4 | 3 |
+    #       +---+---+---+
+    #       | 6 | X | 2 |
+    #       +---+---+---+
+    #       | 7 | 0 | 1 |
+    #       +---+---+---+
+    def check_bounds(self, row, col, b_color):
+        score = 0
+        scores = []
+        opp_color = self.get_opp_color(b_color)
+
+        # ( 0 ) check S neighbor
+        if self.board[row + 1][col].color is opp_color:
+            score += 1
+            scores.append((row + 1, col))
+            while self.board[row + 1 + score][col].color is opp_color:
+                score += 1
+                scores.append((row + 1 + score, col))
+            # if self.board[row + 1 + score][col].color is not b_color:
+            #     score = 0
+            #     scores.clear()
+            return scores
+
+        # ( 1 ) check SE neighbor
+        if self.board[row + 1][col + 1].color is opp_color:
+            score += 1
+            scores.append((row + 1, col + 1))
+            while self.board[row + 1 + score][col + 1 + score].color is opp_color:
+                score += 1
+                scores.append((row + 1 + score, col + 1 + score))
+            # if self.board[row + 1][col + 1 + score].color is not b_color:
+            #     score = 0
+            return scores
+
+        # ( 2 ) check E neighbor
+        if self.board[row][col + 1].color is opp_color:
+            score += 1
+            scores.append((row, col + 1))
+            while self.board[row][col + 1 + score].color is opp_color:
+                score += 1
+                scores.append((row, col + 1 + score))
+            # if self.board[row][col + 1 + score].color is not b_color:
+            #     score = 0
+            return scores
+
+        # ( 3 ) check NE neighbor
+        if self.board[row - 1][col + 1].color is opp_color:
+            score += 1
+            scores.append((row - 1, col + 1))
+            while self.board[row - 1 - score][col + 1 + score].color is opp_color:
+                score += 1
+                scores.append((row - 1 - score, col + 1 + score))
+            # if self.board[row - 1 - score][col + 1 + score].color is not b_color:
+            #     score = 0
+            return scores
+
+        # ( 4 ) check N neighbor
+        if self.board[row - 1][col].color is opp_color:
+            score += 1
+            scores.append((row - 1, col))
+            while self.board[row + 1 + score][col].color is opp_color:
+                score += 1
+                scores.append((row - 1 - score, col))
+            # if self.board[row + 1 + score][col].color is not b_color:
+            #     score = 0
+            return scores
+
+        # ( 5 ) check NW neighbor
+        if self.board[row - 1][col - 1].color is opp_color:
+            score += 1
+            scores.append((row - 1, col - 1))
+            while self.board[row - 1 - score][col - 1 - score].color is opp_color:
+                score += 1
+                scores.append((row - 1 - score, col - 1 - score))
+            # if self.board[row - 1 - score][col - 1 - score].color is not b_color:
+            #     score = 0
+            return scores
+
+        # ( 6 ) check W neighbor
+        if self.board[row][col - 1].color is opp_color:
+            score += 1
+            while self.board[row][col - 1 - score].color is opp_color:
+                score += 1
+            # if self.board[row][col - 1 - score].color is not b_color:
+            #     score = 0
+            return scores
+
+        # ( 7 ) check SW neighbor
+        if self.board[row + 1][col - 1].color is opp_color:
+            score += 1
+            scores.append((row + 1, col - 1))
+            while self.board[row + 1 + score][col - 1 - score].color is opp_color:
+                score += 1
+                scores.append((row + 1 + score, col - 1 - score))
+            # if self.board[row + 1 + score][col - 1 - score].color is not b_color:
+            #     score = 0
+            return scores
+
+        # return score
+
+
+    def get_opp_color(self, color):
+        if color is LIGHT:
+            return DARK
+        else:
+            return LIGHT
+
 
     # displays Reversi game board on screen with ASCII art
     def display_board(self):
@@ -145,9 +349,30 @@ class Board:
         print line[0:self.size * len(line)]
 
 
-# class to simulate a Reversi game board tile as BLANK, LIGHT or DARK
-class Tile:
+# class to simulate a BLANK, LIGHT or DARK disk on a Reversi game board
+class Disk:
     color = BLANK
+
+    # checks if tile has no disk currently occupying it
+    def blank(self):
+        if self.color is BLANK:
+            return True
+        else:
+            return False
+
+    # checks if tile currently contains a light disk
+    def light(self):
+        if self.color is LIGHT:
+            return True
+        else:
+            return False
+
+    # checks if tile currently contains a dark disk
+    def dark(self):
+        if self.color is DARK:
+            return True
+        else:
+            return False
 
 
 # class to simulate Reversi player
@@ -160,6 +385,7 @@ class Player:
     def __init__(self, c, t):
         self.color = c
         self.type = t
+
 
 
 # main function to parse command line arguments and create new Reversi game
