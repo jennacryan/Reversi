@@ -261,12 +261,14 @@ class Board:
             if self.get_tile(c, r) is opp_color:
                 c_inc = c - col
                 r_inc = r - row
+                logger.debug(str((c, r)))
+                logger.debug(str((c + c_inc, r + r_inc)))
                 move.append((c, r))
                 # scores.append((c, r))
                 # TODO sometimes get hung in here
                 while self.get_tile(c + c_inc, r + r_inc) is opp_color:
-                    c_inc = c - col
-                    r_inc = r - row
+                    c_inc += c - col
+                    r_inc += r - row
                     move.append((c + c_inc, r + r_inc))
                     # scores.append((c + c_inc, r + r_inc))
                 if self.get_tile(c + c_inc, r + r_inc) is not b_color:
