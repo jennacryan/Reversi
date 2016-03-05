@@ -126,20 +126,15 @@ class Reversi:
         while self.playing:
             self.board.display_board()
             self.display_info()
-            self.board.print_list(self.board.current_neighbs)
+            # self.board.print_list(self.board.current_neighbs)
             # check if we want to prompt for a move or make one ourselves
-            if self.current_player is self.human:
-                self.last_move = self.get_move()
+            # if self.current_player is self.human:
+            self.last_move = self.get_move()
             # else:
             #     self.last_move = self.board.make_move()
             # # set move on game board + switch players
             self.board.set_move(self.current_player.current_move, self.current_player.color[0])
             self.switch_player()
-
-            self.board.display_board()
-            self.display_info()
-            self.board.print_list(self.board.current_neighbs)
-            self.playing = False
 
 
 # class to simulate a Reversi game board of given size
@@ -214,8 +209,9 @@ class Board:
         if (col, row) in self.current_neighbs:
                 self.current_neighbs.remove((col, row))
 
-        logger.debug('boundary_list for %s : ' % str((col, row)))
-        self.print_list(self.get_boundary_list(col, row))
+        # logger.debug('boundary_list for %s : ' % str((col, row)))
+        # self.print_list(self.get_boundary_list(col, row))
+
         for c, r in self.get_boundary_list(col, row):
             if self.get_tile(c, r) is BLANK:
                 self.current_neighbs.add((c, r))
@@ -254,26 +250,23 @@ class Board:
         scores = [(col, row)]
         opp_color = self.get_opp_color(b_color)
 
+        # logger.debug('boundary_list for %s' % str((col, row)))
+        # self.print_list(self.get_boundary_list(col, row))
+
         # loop through neighbors and check for valid move
-        logger.debug('boundary_list for %s' % str((col, row)))
-        self.print_list(self.get_boundary_list(col, row))
         for c, r in self.get_boundary_list(col, row):
             if self.get_tile(c, r) is opp_color:
-                if c >= col and r >= row:
-                    score += 1
-                else:
-                    score -= 1
+                c_inc = c - col
+                r_inc = r - row
                 scores.append((c, r))
-                while self.get_tile(c + score, r) is opp_color:
-                    if c >= col and r >= row:
-                        score += 1
-                    else:
-                        score -= 1
-                    scores.append((c + score, r))
-                if self.get_tile(c + score, r) is not b_color:
-                    logger.debug('tile %s is not b_color' % str((c + score, r)))
+                while self.get_tile(c + c_inc, r + r_inc) is opp_color:
+                    c_inc = c - col
+                    r_inc = r - row
+                    scores.append((c + c_inc, r + r_inc))
+                if self.get_tile(c + c_inc, r + r_inc) is not b_color:
+                    logger.debug('tile %s is not b_color' % str((c + c_inc, r + r_inc)))
                     score = 0
-                    scores = [(c, r)]
+                    scores = [(col, row)]
                 else:
                     break
 
@@ -336,7 +329,7 @@ class Board:
             print '  ' + chr(ord('b') + c),
         self.print_line()
         for r in range(self.size):
-            print ' ' + str(c + 1) + ' |',
+            print ' ' + str(r + 1) + ' |',
             for c in range(self.size):
                 print self.get_tile(c, r) + ' |',
             self.print_line()
