@@ -42,14 +42,12 @@ class Reversi:
             self.human = Player('Dark', 'human')
             self.current_player = self.human
 
-
     # displays information about last move made, whose turn is next + current score
     def display_info(self):
         print 'Move played: ' + self.last_move
         print self.current_player.color + ' player ( ' + self.current_player.type + ' ) plays now'
         print 'Score: ' + self.computer.color + ' ' + str(self.computer.score) \
               + ' - ' + self.human.color + ' ' + str(self.human.score)
-
 
     # switches current player from human to computer or vice versa
     def switch_player(self):
@@ -58,22 +56,23 @@ class Reversi:
         else:
             self.current_player = self.computer
 
-
-    def check_move(self, row, col):
+    def check_move(self, col, row):
         # check move is into valid neighbor space
-        if (row, col) not in self.board.current_neighbs:
+        if (col, row) not in self.board.current_neighbs:
+            logger.debug('%s not in current_neighbs' % str((col, row)))
+            self.board.print_list(self.board.current_neighbs)
             return False
         else:
             # check for disks in straight lines
-            scores = self.board.check_bounds(row, col, self.current_player.color[0])
+            scores = self.board.check_bounds(col, row, self.current_player.color[0])
 
             if len(scores) is 1:
+                logger.debug('no valid score from move')
                 return False
             else:
                 self.current_player.current_move = scores
                 self.current_player.score += len(scores) - 1
                 return True
-
 
     # prompts opponent for a move
     def get_move(self):
@@ -81,17 +80,17 @@ class Reversi:
         # get human move
         move = raw_input('play < move > : ')
         # get integer coordinate values
-        row = int(move[1])
-        col = self.board.get_row_num(move[0])
+        col = self.board.get_col_num(move[0])
+        row = self.board.get_row_num(move[1])
 
+        # check row is character in range for board size
+        char = row < self.size
         # check column is number in range for board size
         num = col < self.size
-        # check row is character in range for board size
-        char =  row < self.size
 
         # check move is valid for current game board
         if char and num:
-            valid = self.check_move(row, col)
+            valid = self.check_move(col, row)
         else:
             logger.debug('not char or num')
         while not char or not num or not valid:
@@ -106,17 +105,16 @@ class Reversi:
             move = raw_input('Invalid move : ' + move + '\nplay < letter >< number > : ')
 
             # get integer coordinate values
-            row = int(move[1])
-            col = self.board.get_row_num(move[0])
+            col = self.board.get_col_num(move[0])
+            row = self.board.get_row_num(move[1])
 
             # check row, col in size range
-            num = col < self.size
-            char = row < self.size
+            char = col < self.size
+            num = row < self.size
 
             if char and num:
-                valid = self.check_move(row, col)
+                valid = self.check_move(col, row)
         return move
-
 
     # initializes game play with opponent
     def play(self):
@@ -157,28 +155,28 @@ class Board:
         self.size = n
         self.board = self.init_board()
 
-    def set_tile(self, row, col, color):
-        self.board[row - 1][col - 1] = color
+    def set_tile(self, col, row, color):
+        self.board[col][row] = color
 
-    def get_tile(self, row, col):
-        return self.board[row - 1][col - 1]
+    def get_tile(self, col, row):
+        return self.board[col][row]
 
     # create a new game board, initially cleared out
     def init_board(self):
-        for i in range(self.size + 1):
-            self.board.append([' '] * (self.size + 1))
+        for i in range(self.size):
+            self.board.append([' '] * self.size)
         return self.board
 
     # clears out game board for a new game, with initial center spaces
     def init_game(self):
         # clear board
-        for x in range(self.size):
-            for y in range(self.size):
-                self.set_tile(x, y, BLANK)
+        for c in range(self.size):
+            for r in range(self.size):
+                self.set_tile(c, r, BLANK)
 
         # set up center pieces
-        center_1 = self.size / 2
-        center_2 = self.size / 2 + 1
+        center_1 = self.size / 2 - 1
+        center_2 = self.size / 2
 
         # set color on board + add to color list
         self.set_tile(center_1, center_1, LIGHT)
@@ -199,10 +197,9 @@ class Board:
         self.get_neighbors(center_1, center_2)
         self.get_neighbors(center_2, center_1)
 
-        # self.print_tiles()
+        self.print_tiles()
 
         return self.board
-
 
     # adds new neighbors to set
     #       +---+---+---+
@@ -212,39 +209,37 @@ class Board:
     #       +---+---+---+
     #       | 7 | 0 | 1 |
     #       +---+---+---+
-    def get_neighbors(self, row, col):
+    def get_neighbors(self, col, row):
         # remove tile if currently in list of available neighbors
-        if (row, col) in self.current_neighbs:
-                self.current_neighbs.remove((row, col))
+        if (col, row) in self.current_neighbs:
+                self.current_neighbs.remove((col, row))
 
-        logger.debug('boundary_list for %s : ' % str((row, col)))
-        self.print_list(self.get_boundary_list(row, col))
-        for r, c in self.get_boundary_list(row, col):
-            if self.get_tile(r, c) is BLANK:
-                self.current_neighbs.add((r, c))
-
+        logger.debug('boundary_list for %s : ' % str((col, row)))
+        self.print_list(self.get_boundary_list(col, row))
+        for c, r in self.get_boundary_list(col, row):
+            if self.get_tile(c, r) is BLANK:
+                self.current_neighbs.add((c, r))
 
     # set move on board + update color, neighbor lists
     def set_move(self, move, color):
-        for row, col in move:
+        for col, row in move:
             # logger.debug('move : %s' % str(move))
             if color is LIGHT:
-                self.light.append((row, col))
+                self.light.append((col, row))
             else:
-                self.dark.append((row, col))
+                self.dark.append((col, row))
 
             # update color lists for flipped disks
-            if self.get_tile(row, col) is not BLANK:
-                if self.get_tile(row, col) is LIGHT:
-                    self.light.remove((row, col))
+            if self.get_tile(col, row) is not BLANK:
+                if self.get_tile(col, row) is LIGHT:
+                    self.light.remove((col, row))
                 else:
-                    self.dark.remove((row, col))
+                    self.dark.remove((col, row))
 
             # update board + neighbors
-            # logger.debug('setting %s on board' % str((row, col)))
-            self.set_tile(row, col, color)
-            self.get_neighbors(row, col)
-
+            logger.debug('setting %s on board' % str((col, row)))
+            self.set_tile(col, row, color)
+            self.get_neighbors(col, row)
 
     # checks bounds for line of bounded opponent disks
     #       +---+---+---+
@@ -254,27 +249,35 @@ class Board:
     #       +---+---+---+
     #       | 7 | 0 | 1 |
     #       +---+---+---+
-    def check_bounds(self, r, c, b_color):
+    def check_bounds(self, col, row, b_color):
         score = 0
-        scores = [(r, c)]
+        scores = [(col, row)]
         opp_color = self.get_opp_color(b_color)
 
         # loop through neighbors and check for valid move
-        for row, col in self.get_boundary_list(r, c):
-            if self.get_tile(row, col) is opp_color:
-                score += 1
-                scores.append((row, col))
-                while self.get_tile(row + score, col) is opp_color:
+        logger.debug('boundary_list for %s' % str((col, row)))
+        self.print_list(self.get_boundary_list(col, row))
+        for c, r in self.get_boundary_list(col, row):
+            if self.get_tile(c, r) is opp_color:
+                if c >= col and r >= row:
                     score += 1
-                    scores.append((row + score, col))
-                if self.get_tile(row + score, col) is not b_color:
+                else:
+                    score -= 1
+                scores.append((c, r))
+                while self.get_tile(c + score, r) is opp_color:
+                    if c >= col and r >= row:
+                        score += 1
+                    else:
+                        score -= 1
+                    scores.append((c + score, r))
+                if self.get_tile(c + score, r) is not b_color:
+                    logger.debug('tile %s is not b_color' % str((c + score, r)))
                     score = 0
-                    scores = [(row, col)]
+                    scores = [(c, r)]
                 else:
                     break
 
         return scores
-
 
     # check current neighbors for best possible move
     def make_move(self, b_color):
@@ -282,24 +285,23 @@ class Board:
         opp_color = self.get_opp_color(b_color)
 
         # check all available tiles to place a disk
-        for r, c in self.current_neighbs:
+        for c, r in self.current_neighbs:
             score = 0
             move = []
             # check all bounds of that tile
-            for row, col in self.get_boundary_list(r, c):
-                if self.get_tile(row + score, col) is opp_color:
+            for col, row in self.get_boundary_list(c, r):
+                if self.get_tile(col + score, row) is opp_color:
                     score += 1
-                    move.append((row, col))
-                    while self.get_tile(row + score, col) is opp_color:
+                    move.append((col, row))
+                    while self.get_tile(col + score, row) is opp_color:
                         score += 1
-                        move.append((row + score, col))
-                    if self.get_tile(row + score, col).color is not b_color:
+                        move.append((col + score, row))
+                    if self.get_tile(col + score, row).color is not b_color:
                         score = 0
                         move = []
                     else:
                         scores.append(move)
         return scores
-
 
     def get_opp_color(self, color):
         if color is LIGHT:
@@ -307,25 +309,25 @@ class Board:
         else:
             return LIGHT
 
+    def get_col_num(self, col):
+        return ord(col) - 97
 
     def get_row_num(self, row):
-        return ord(row) - 96
+        return int(row) - 1
 
-
-    def get_boundary_list(self, row, col):
+    def get_boundary_list(self, col, row):
         bounds = []
 
-        bounds.append((row, col + 1))
-        bounds.append((row, col - 1))
-        bounds.append((row + 1, col))
-        bounds.append((row + 1, col + 1))
-        bounds.append((row + 1, col - 1))
-        bounds.append((row - 1, col))
-        bounds.append((row - 1, col + 1))
-        bounds.append((row - 1, col - 1))
+        bounds.append((col, row + 1))
+        bounds.append((col, row - 1))
+        bounds.append((col + 1, row))
+        bounds.append((col + 1, row + 1))
+        bounds.append((col + 1, row - 1))
+        bounds.append((col - 1, row))
+        bounds.append((col - 1, row + 1))
+        bounds.append((col - 1, row - 1))
 
         return bounds
-
 
     # displays Reversi game board on screen with ASCII art
     def display_board(self):
@@ -333,10 +335,10 @@ class Board:
         for c in range(self.size - 1):
             print '  ' + chr(ord('b') + c),
         self.print_line()
-        for x in range(1, self.size + 1):
-            print ' ' + str(x) + ' |',
-            for y in range(1, self.size + 1):
-                print self.get_tile(x, y) + ' |',
+        for r in range(self.size):
+            print ' ' + str(c + 1) + ' |',
+            for c in range(self.size):
+                print self.get_tile(c, r) + ' |',
             self.print_line()
         print ''
         return
@@ -346,11 +348,10 @@ class Board:
         line = '\n   +' + '---+' * self.size
         print line[0:self.size * len(line)]
 
-
     def print_list(self, l):
         logger.debug('list contents ( %d items ) :' % len(l))
-        for row, col in l:
-            logger.debug(str((row, col)) + '  ' + str(chr(ord('a') + row)) + '' + str(col))
+        for col, row in l:
+            logger.debug(str((col, row)) + '  ' + str(chr(ord('a') + col)) + '' + str(row + 1))
 
     def print_tiles(self):
         logger.debug('light : ')
