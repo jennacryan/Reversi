@@ -5,6 +5,7 @@
 import sys
 import logging
 import argparse
+import random
 import string
 
 logging.basicConfig(level=logging.DEBUG)
@@ -131,7 +132,7 @@ class Reversi:
             # if self.current_player is self.human:
             self.last_move = self.get_move()
             # else:
-            #     self.last_move = self.board.make_move()
+            #     self.last_move = self.board.make_move(self.current_player.color[0])
             # set move on game board + switch players
             # TODO would need to change if tokens aren't 'L' + 'D'
             self.board.set_move(self.current_player.current_move, self.current_player.color[0])
@@ -280,26 +281,31 @@ class Board:
     # check current neighbors for best possible move
     def make_move(self, b_color):
         scores = []
-        opp_color = self.get_opp_color(b_color)
 
         # check all available tiles to place a disk
         for c, r in self.current_neighbs:
-            score = 0
-            move = []
-            # check all bounds of that tile
-            for col, row in self.get_boundary_list(c, r):
-                if self.get_tile(col + score, row) is opp_color:
-                    score += 1
-                    move.append((col, row))
-                    while self.get_tile(col + score, row) is opp_color:
-                        score += 1
-                        move.append((col + score, row))
-                    if self.get_tile(col + score, row).color is not b_color:
-                        score = 0
-                        move = []
-                    else:
-                        scores.append(move)
-        return scores
+            move = self.check_bounds(c, r, b_color)
+            if len(move) > 1:
+                scores.append(move)
+
+        rand = randrange(self.size)
+        return scores[rand]
+        #     score = 0
+        #     move = []
+        #     # check all bounds of that tile
+        #     for col, row in self.get_boundary_list(c, r):
+        #         if self.get_tile(col + score, row) is opp_color:
+        #             score += 1
+        #             move.append((col, row))
+        #             while self.get_tile(col + score, row) is opp_color:
+        #                 score += 1
+        #                 move.append((col + score, row))
+        #             if self.get_tile(col + score, row).color is not b_color:
+        #                 score = 0
+        #                 move = []
+        #             else:
+        #                 scores.append(move)
+        # return scores
 
     def get_opp_color(self, color):
         if color is LIGHT:
