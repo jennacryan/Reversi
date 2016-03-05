@@ -221,20 +221,20 @@ class Board:
     # set move on board + update color, neighbor lists
     def set_move(self, move, color):
         for col, row in move:
-            # logger.debug('move : %s' % str(move))
+            logger.debug('move : %s' % str((col, row)))
             if color is LIGHT:
                 self.light.append((col, row))
             else:
                 self.dark.append((col, row))
 
             # update color lists for flipped disks
-            if self.get_tile(col, row) is not BLANK:
-                if self.get_tile(col, row) is LIGHT:
-                    self.light.remove((col, row))
-                else:
-                    self.dark.remove((col, row))
+            if self.get_tile(col, row) is LIGHT:
+                self.light.remove((col, row))
+            elif self.get_tile(col, row) is DARK:
+                self.dark.remove((col, row))
 
             # update board + neighbors
+            # TODO not setting first tile sometimes
             logger.debug('setting %s on board' % str((col, row)))
             self.set_tile(col, row, color)
             self.get_neighbors(col, row)
@@ -267,9 +267,9 @@ class Board:
                 # scores.append((c, r))
                 # TODO sometimes get hung in here
                 while self.get_tile(c + c_inc, r + r_inc) is opp_color:
+                    move.append((c + c_inc, r + r_inc))
                     c_inc += c - col
                     r_inc += r - row
-                    move.append((c + c_inc, r + r_inc))
                     # scores.append((c + c_inc, r + r_inc))
                 if self.get_tile(c + c_inc, r + r_inc) is not b_color:
                     logger.debug('tile %s is not b_color' % str((c + c_inc, r + r_inc)))
@@ -324,14 +324,22 @@ class Board:
     def get_boundary_list(self, col, row):
         bounds = []
 
-        bounds.append((col, row + 1))
-        bounds.append((col, row - 1))
-        bounds.append((col + 1, row))
-        bounds.append((col + 1, row + 1))
-        bounds.append((col + 1, row - 1))
-        bounds.append((col - 1, row))
-        bounds.append((col - 1, row + 1))
-        bounds.append((col - 1, row - 1))
+        if row + 1 < self.size:
+            bounds.append((col, row - 1))
+        if col + 1 < self.size:
+            bounds.append((col + 1, row))
+        if col + 1 < self.size and row + 1 < self.size:
+            bounds.append((col + 1, row + 1))
+        if col + 1 < self.size and row - 1 < self.size:
+            bounds.append((col + 1, row - 1))
+        if col - 1 < self.size:
+            bounds.append((col - 1, row))
+        if col - 1 < self.size and row + 1 < self.size:
+            bounds.append((col - 1, row + 1))
+        if col - 1 < self.size and row - 1 < self.size:
+            bounds.append((col - 1, row - 1))
+        if row + 1 < self.size:
+            bounds.append((col, row + 1))
 
         return bounds
 
