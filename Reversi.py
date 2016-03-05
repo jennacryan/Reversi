@@ -128,11 +128,13 @@ class Reversi:
             self.board.display_board()
             self.display_info()
             # self.board.print_list(self.board.current_neighbs)
+
             # check if we want to prompt for a move or make one ourselves
             # if self.current_player is self.human:
             self.last_move = self.get_move()
             # else:
             #     self.last_move = self.board.make_move(self.current_player.color[0])
+
             # set move on game board + switch players
             # TODO would need to change if tokens aren't 'L' + 'D'
             self.board.set_move(self.current_player.current_move, self.current_player.color[0])
@@ -157,6 +159,12 @@ class Board:
 
     def get_tile(self, col, row):
         return self.board[col][row]
+
+    def is_blank(self, col, row):
+        if self.get_tile(col, row) is BLANK:
+            return True
+        else:
+            return False
 
     # create a new game board, initially cleared out
     def init_board(self):
@@ -214,9 +222,10 @@ class Board:
         # logger.debug('boundary_list for %s : ' % str((col, row)))
         # self.print_list(self.get_boundary_list(col, row))
 
-        for c, r in self.get_boundary_list(col, row):
-            if self.get_tile(c, r) is BLANK:
-                self.current_neighbs.add((c, r))
+        # for c, r in self.get_boundary_list(col, row):
+        #     if self.get_tile(c, r) is BLANK:
+        #         self.current_neighbs.add((c, r))
+        self.current_neighbs.update(self.get_boundary_list(col, row, True))
 
     # set move on board + update color, neighbor lists
     def set_move(self, move, color):
@@ -234,7 +243,6 @@ class Board:
                 self.dark.remove((col, row))
 
             # update board + neighbors
-            # TODO not setting first tile sometimes
             logger.debug('setting %s on board' % str((col, row)))
             self.set_tile(col, row, color)
             self.get_neighbors(col, row)
@@ -247,6 +255,11 @@ class Board:
     #       +---+---+---+
     #       | 7 | 0 | 1 |
     #       +---+---+---+
+    # TODO check if its valid to have move setting disk next to disk of same color to make line
+    # TODO that would flip at least one disk, I think it's valid, so need to update code
+    # TODO ******* also still not updating all tiles in line although updates score
+    # TODO **** look for any neighbors in lines and traverse to those points looking for opp or blank
+    # TODO traverse boundary tiles that aren't blank until reaching another blank and check at least 1 opp tile
     def check_bounds(self, col, row, b_color):
         scores = {(col, row)}
         # scores = [(col, row)]
@@ -256,27 +269,24 @@ class Board:
         # self.print_list(self.get_boundary_list(col, row))
 
         # loop through neighbors and check for valid move
-        for c, r in self.get_boundary_list(col, row):
+        for c, r in self.get_boundary_list(col, row, False):
             move = []
             if self.get_tile(c, r) is opp_color:
-                c_inc = c - col
-                r_inc = r - row
+                c_next = c - col
+                r_next = r - row
                 logger.debug(str((c, r)))
-                logger.debug(str((c + c_inc, r + r_inc)))
+                logger.debug(str((c + c_next, r + r_next)))
                 move.append((c, r))
-                # scores.append((c, r))
-                # TODO sometimes get hung in here
-                while self.get_tile(c + c_inc, r + r_inc) is opp_color:
-                    move.append((c + c_inc, r + r_inc))
-                    c_inc += c - col
-                    r_inc += r - row
-                    # scores.append((c + c_inc, r + r_inc))
-                if self.get_tile(c + c_inc, r + r_inc) is not b_color:
-                    logger.debug('tile %s is not b_color' % str((c + c_inc, r + r_inc)))
-                    move = []
-                    # scores = [(col, row)]
-                else:
+                # while self.get_tile(c + c_next, r + r_next) is opp_color or self.get_tile(c + c_next, r + r_next) is b_color:
+                while self.get_tile(c + c_next, r + r_next) is opp_color:
+                # while (c + c_next, r + r_next) not in self.current_neighbs:
+                    move.append((c + c_next, r + r_next))
+                    c_next += c - col
+                    r_next += r - row
+                if self.get_tile(c + c_next, r + r_next) is b_color:
                     scores.update(move)
+                else:
+                    logger.debug('tile %s is not b_color' % str((c + c_next, r + r_next)))
 
         return list(scores)
 
@@ -321,24 +331,31 @@ class Board:
     def get_row_num(self, row):
         return int(row) - 1
 
-    def get_boundary_list(self, col, row):
+    def get_boundary_list(self, col, row, blank):
         bounds = []
 
-        if row + 1 < self.size:
+        if row + 1 < self.size and self.is_blank(col, row - 1) is blank:
             bounds.append((col, row - 1))
-        if col + 1 < self.size:
+
+        if col + 1 < self.size and self.is_blank(col + 1, row) is blank:
             bounds.append((col + 1, row))
-        if col + 1 < self.size and row + 1 < self.size:
+
+        if col + 1 < self.size and row + 1 < self.size and self.is_blank(col + 1, row + 1) is blank:
             bounds.append((col + 1, row + 1))
-        if col + 1 < self.size and row - 1 < self.size:
+
+        if col + 1 < self.size and row - 1 < self.size and self.is_blank(col + 1, row - 1) is blank:
             bounds.append((col + 1, row - 1))
-        if col - 1 < self.size:
+
+        if col - 1 < self.size and self.is_blank(col - 1, row) is not BLANK:
             bounds.append((col - 1, row))
-        if col - 1 < self.size and row + 1 < self.size:
+
+        if col - 1 < self.size and row + 1 < self.size and self.is_blank(col - 1, row + 1) is blank:
             bounds.append((col - 1, row + 1))
-        if col - 1 < self.size and row - 1 < self.size:
+
+        if col - 1 < self.size and row - 1 < self.size and self.is_blank(col - 1, row - 1) is blank:
             bounds.append((col - 1, row - 1))
-        if row + 1 < self.size:
+
+        if row + 1 < self.size and self.is_blank(col, row + 1) is blank:
             bounds.append((col, row + 1))
 
         return bounds
