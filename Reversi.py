@@ -132,7 +132,8 @@ class Reversi:
             self.last_move = self.get_move()
             # else:
             #     self.last_move = self.board.make_move()
-            # # set move on game board + switch players
+            # set move on game board + switch players
+            # TODO would need to change if tokens aren't 'L' + 'D'
             self.board.set_move(self.current_player.current_move, self.current_player.color[0])
             self.switch_player()
 
@@ -246,8 +247,8 @@ class Board:
     #       | 7 | 0 | 1 |
     #       +---+---+---+
     def check_bounds(self, col, row, b_color):
-        score = 0
-        scores = [(col, row)]
+        scores = {(col, row)}
+        # scores = [(col, row)]
         opp_color = self.get_opp_color(b_color)
 
         # logger.debug('boundary_list for %s' % str((col, row)))
@@ -255,22 +256,26 @@ class Board:
 
         # loop through neighbors and check for valid move
         for c, r in self.get_boundary_list(col, row):
+            move = []
             if self.get_tile(c, r) is opp_color:
                 c_inc = c - col
                 r_inc = r - row
-                scores.append((c, r))
+                move.append((c, r))
+                # scores.append((c, r))
+                # TODO sometimes get hung in here
                 while self.get_tile(c + c_inc, r + r_inc) is opp_color:
                     c_inc = c - col
                     r_inc = r - row
-                    scores.append((c + c_inc, r + r_inc))
+                    move.append((c + c_inc, r + r_inc))
+                    # scores.append((c + c_inc, r + r_inc))
                 if self.get_tile(c + c_inc, r + r_inc) is not b_color:
                     logger.debug('tile %s is not b_color' % str((c + c_inc, r + r_inc)))
-                    score = 0
-                    scores = [(col, row)]
+                    move = []
+                    # scores = [(col, row)]
                 else:
-                    break
+                    scores.update(move)
 
-        return scores
+        return list(scores)
 
     # check current neighbors for best possible move
     def make_move(self, b_color):
@@ -334,7 +339,6 @@ class Board:
                 print self.get_tile(c, r) + ' |',
             self.print_line()
         print ''
-        return
 
     # prints a horizontal line of dashes + pluses
     def print_line(self):
