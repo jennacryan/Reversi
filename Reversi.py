@@ -49,6 +49,7 @@ class Reversi:
         print self.current_player.color + ' player ( ' + self.current_player.type + ' ) plays now'
         print 'Score: ' + self.computer.color + ' ' + str(self.computer.score) \
               + ' - ' + self.human.color + ' ' + str(self.human.score)
+        logger.debug('score from tiles : light : %d, dark : %d' % (len(self.board.light), len(self.board.dark)))
 
     # switches current player from human to computer or vice versa
     def switch_player(self):
@@ -126,8 +127,10 @@ class Reversi:
                 self.current_player.current_move = self.board.make_move(self.current_player.color[0])
 
             # increment score, set move on game board + switch players
-            self.current_player.score += len(self.current_player.current_move) - 1
-            self.board.set_move(self.current_player.current_move, self.current_player.color[0])
+            self.current_player = self.board.set_move(self.current_player)
+            self.current_player.score = len(self.current_player.tiles)
+            # self.current_player.score += len(self.current_player.current_move) - 1
+            # self.board.set_move(self.current_player.current_move, self.current_player.color[0])
             self.switch_player()
 
 
@@ -231,13 +234,15 @@ class Board:
     # TODO ******* also still not updating all tiles in line although updates score
     # TODO **** look for any neighbors in lines and traverse to those points looking for opp or blank
     # TODO traverse boundary tiles that aren't blank until reaching another blank and check at least 1 opp tile
+
+    # TODO still not validating all moves that I thik are valid
     def check_bounds(self, col, row, b_color):
         scores = {(col, row)}
         # scores = [(col, row)]
         opp_color = self.get_opp_color(b_color)
 
         logger.debug('boundary_list for %s' % str((col, row)))
-        logger.debug('opp_color  : %s' % opp_color)
+        # logger.debug('opp_color  : %s' % opp_color)
         # self.print_list(self.get_boundary_list(col, row))
 
         # loop through neighbors and check for valid move
@@ -246,17 +251,18 @@ class Board:
             # if self.get_tile(c, r) is opp_color:
             c_next = c - col
             r_next = r - row
-            logger.debug('(c, r)     : %s' % str((c, r)))
-            logger.debug('(c_n, r_n) : %s' % str((c + c_next, r + r_next)))
+            # logger.debug('(c, r)     : %s' % str((c, r)))
+            # logger.debug('(c_n, r_n) : %s' % str((c + c_next, r + r_next)))
             if self.get_tile(c, r) is opp_color:
                 move.append((c, r))
-                logger.debug('appending  : %s' % str((c, r)))
+                # logger.debug('appending  : %s' % str((c, r)))
             # while self.get_tile(c + c_next, r + r_next) is opp_color or self.get_tile(c + c_next, r + r_next) is b_color:
             # while self.get_tile(c + c_next, r + r_next) is opp_color:
-            while self.get_tile(c + c_next, r + r_next) is not BLANK:
-                logger.debug('looking at : %s' % str((c + c_next, r + r_next)))
+            while c + c_next in range(self.size) and r + r_next in range(self.size) \
+                    and self.get_tile(c + c_next, r + r_next) is not BLANK:
+                # logger.debug('looking at : %s' % str((c + c_next, r + r_next)))
                 if self.get_tile(c + c_next, r + r_next) is opp_color:
-                    logger.debug('appending  : %s' % str((c + c_next, r + r_next)))
+                    # logger.debug('appending  : %s' % str((c + c_next, r + r_next)))
                     move.append((c + c_next, r + r_next))
                 c_next += c - col
                 r_next += r - row
@@ -296,32 +302,47 @@ class Board:
 
         # find all available moves
         for c, r in self.current_neighbs:
-            move = self.check_bounds(c, r, b_color)
-            if len(move) > 1:
+            move = Move(b_color, self)
+            move.tiles = move.board.check_bounds(c, r, b_color)
+            if len(move.my_tiles) > 1:
                 my_moves.append(move)
 
-        # find all available opposing moves
+        # find all available opposing moves for all possible moves
         # TODO need to simulate updated game board
         for move in my_moves:
-            opp_moves = []
+            # update game board
+            move.board.set_move(move.my_tiles, move.color)
+            # opp_moves = Move(opp_color, move.board)
+            best_opp_move = 1
 
-            neighbs = self.current_neighbs
-            neighbs.update(self.get_boundary_list(move[0][0], move[0][1], True))
+            # neighbs = move.board.neighbs
+            # set move should update neighbors accordingly
+            # move.board.current_neighbs.update(move.board.get_boundary_list(move.tiles[0][0], move.tiles[0][1], True))
 
-            for c, r in neighbs:
-                opp_move = self.check_bounds(c, r, opp_color)
-                if len(move) > 1:
-                    opp_moves.append(opp_move)
+            # find all possible opposing moves
+            for c, r in move.board.current_neighbs:
+                opp_move = move.board.check_bounds(c, r, opp_color)
+                if len(opp_move) > 1:
+                    next_board = move.board
+                    next_board.set_move(opp_move, opp_color)
+                    # check if move is best yet
+                    if len(next_board.get_disk_list(opp_color)) > best_opp_move:
+                        opp_moves.tiles.append(opp_move)
+                        best_opp_move = len(next_board.get_disk_list(opp_color))
 
 
      # set move on board + update color, neighbor lists
-    def set_move(self, move, color):
-        for col, row in move:
-            logger.debug('move  : %s' % str((col, row)))
-            if color is LIGHT:
+    def set_move(self, player):
+        for col, row in player.current_move:
+            # logger.debug('move  : %s' % str((col, row)))
+            if player.color[0] is LIGHT:
                 self.light.append((col, row))
             else:
                 self.dark.append((col, row))
+
+            player.tiles.append((col, row))
+            if (col, row) in player.tiles and self.get_tile(col, row) is not player.color[0]:
+                player.tiles.remove((col, row))
 
             # update color lists for flipped disks
             if self.get_tile(col, row) is LIGHT:
@@ -330,9 +351,10 @@ class Board:
                 self.dark.remove((col, row))
 
             # update board + neighbors
-            logger.debug('setting %s on board' % str((col, row)))
-            self.set_tile(col, row, color)
+            # logger.debug('setting %s on board' % str((col, row)))
+            self.set_tile(col, row, player.color[0])
             self.update_neighbors(col, row)
+        return player
 
     def get_opp_color(self, color):
         if color is LIGHT:
@@ -345,6 +367,12 @@ class Board:
 
     def get_row_num(self, row):
         return int(row) - 1
+
+    def get_disk_list(self, color):
+        if color is LIGHT:
+            return self.light
+        else:
+            return self.dark
 
     def get_boundary_list(self, col, row, blank):
         bounds = []
@@ -422,6 +450,7 @@ class Player:
     color = 'Dark'
     type = 'human'
     score = 0
+    tiles = []
     current_move = []
 
     # initialize a Player with color + type
@@ -429,6 +458,20 @@ class Player:
         self.color = c
         self.type = t
 
+
+class Move:
+    my_tiles = []
+    opp_tiles = []
+    # light = []
+    # dark = []
+
+    def __init__(self, color, current_board):
+        self.color = color
+        self.board = current_board
+        # self.board = current_board.board
+        # self.neighbs = current_board.current_neighbs
+        # self.light = current_board.light
+        # self.dark = current_board.dark
 
 
 # main function to parse command line arguments and create new Reversi game
