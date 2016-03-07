@@ -303,8 +303,8 @@ class Board:
         # find all available moves
         for c, r in self.current_neighbs:
             move = Move(b_color, self)
-            move.tiles = move.board.check_bounds(c, r, b_color)
-            if len(move.my_tiles) > 1:
+            move.scores = move.board.check_bounds(c, r, b_color)
+            if len(move.scores) > 1:
                 my_moves.append(move)
 
         # find all available opposing moves for all possible moves
@@ -313,22 +313,24 @@ class Board:
             # update game board
             move.board.set_move(move.my_tiles, move.color)
             # opp_moves = Move(opp_color, move.board)
-            best_opp_move = 1
+            # best_opp_move = 1
 
             # neighbs = move.board.neighbs
             # set move should update neighbors accordingly
             # move.board.current_neighbs.update(move.board.get_boundary_list(move.tiles[0][0], move.tiles[0][1], True))
 
-            # find all possible opposing moves
+            # find all possible opposing moves + add to move
             for c, r in move.board.current_neighbs:
-                opp_move = move.board.check_bounds(c, r, opp_color)
-                if len(opp_move) > 1:
-                    next_board = move.board
-                    next_board.set_move(opp_move, opp_color)
+                opp_move = Move(opp_color, move.board)
+                opp_move.scores = move.board.check_bounds(c, r, opp_color)
+                if len(opp_move.scores) > 1:
+                    opp_move.board = move.board
+                    opp_move.board.set_move(opp_move.scores, opp_color)
+                    move.opp_moves.append(opp_move)
                     # check if move is best yet
-                    if len(next_board.get_disk_list(opp_color)) > best_opp_move:
-                        opp_moves.tiles.append(opp_move)
-                        best_opp_move = len(next_board.get_disk_list(opp_color))
+                    # if len(opp_move.board.get_disk_list(opp_color)) > best_opp_move:
+                    #     opp_moves.tiles.append(opp_move)
+                    #     best_opp_move = len(next_board.get_disk_list(opp_color))
 
 
      # set move on board + update color, neighbor lists
@@ -403,12 +405,6 @@ class Board:
 
         return bounds
 
-    # def get_valid_lines(self, col, row):
-    #     valid_lines = set()
-    #     for c, r in self.current_neighbs:
-    #         if c is col or r is row or c - col is r - row:
-    #             valid_lines.add((col, row))
-
     # displays Reversi game board on screen with ASCII art
     def display_board(self):
         print '     a',
@@ -460,8 +456,8 @@ class Player:
 
 
 class Move:
-    my_tiles = []
-    opp_tiles = []
+    scores = []
+    opp_moves = []
     # light = []
     # dark = []
 
