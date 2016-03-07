@@ -27,7 +27,7 @@ BLANK = ' '             # represents a blank disk
 class Reversi:
     playing = False     # signals when game is currently happening
     size = 8            # default board size is 8 x 8
-    last_move = '--'    # stores last move
+    # last_move = '--'    # stores last move
 
     # initializes game board of size n +
     # human and computer players as light or dark
@@ -45,7 +45,7 @@ class Reversi:
 
     # displays information about last move made, whose turn is next + current score
     def display_info(self):
-        print 'Move played: ' + self.last_move
+        print 'Move played: ' + self.board.last_move
         print self.current_player.color + ' player ( ' + self.current_player.type + ' ) plays now'
         print 'Score: ' + self.computer.color + ' ' + str(self.computer.score) \
               + ' - ' + self.human.color + ' ' + str(self.human.score)
@@ -56,24 +56,6 @@ class Reversi:
             self.current_player = self.human
         else:
             self.current_player = self.computer
-
-    def check_move(self, col, row):
-        # check move is into valid neighbor space
-        if (col, row) not in self.board.current_neighbs:
-            logger.debug('%s not in current_neighbs' % str((col, row)))
-            self.board.print_list(self.board.current_neighbs)
-            return False
-        else:
-            # check for disks in straight lines
-            scores = self.board.check_bounds(col, row, self.current_player.color[0])
-
-            if len(scores) is 1:
-                logger.debug('no valid score from move')
-                return False
-            else:
-                self.current_player.current_move = scores
-                self.current_player.score += len(scores) - 1
-                return True
 
     # prompts opponent for a move
     def get_move(self):
@@ -91,7 +73,11 @@ class Reversi:
 
         # check move is valid for current game board
         if char and num:
-            valid = self.check_move(col, row)
+            scores = self.board.check_move(col, row, self.current_player.color[0])
+            if len(scores) > 1:
+                valid = True
+                self.current_player.current_move = scores
+                self.current_player.score += len(scores) - 1
         else:
             logger.debug('not char or num')
         while not char or not num or not valid:
@@ -114,8 +100,12 @@ class Reversi:
             num = row < self.size
 
             if char and num:
-                valid = self.check_move(col, row)
-        return move
+                scores = self.board.check_move(col, row, self.current_player.color[0])
+                if len(scores) > 1:
+                    valid = True
+                    self.current_player.current_move = scores
+                    self.current_player.score += len(scores) - 1
+        # return move
 
     # initializes game play with opponent
     def play(self):
@@ -130,13 +120,14 @@ class Reversi:
             # self.board.print_list(self.board.current_neighbs)
 
             # check if we want to prompt for a move or make one ourselves
-            # if self.current_player is self.human:
-            self.last_move = self.get_move()
-            # else:
-            #     self.last_move = self.board.make_move(self.current_player.color[0])
+            if self.current_player is self.human:
+                self.get_move()
+            else:
+                self.current_player.current_move = self.board.make_move(self.current_player.color[0])
+                self.current_player.score += len(self.current_player.current_move) - 1
+                print 'make_move : %s' % str(self.board.last_move)
 
             # set move on game board + switch players
-            # TODO would need to change if tokens aren't 'L' + 'D'
             self.board.set_move(self.current_player.current_move, self.current_player.color[0])
             self.switch_player()
 
@@ -148,6 +139,7 @@ class Board:
     light = []
     dark = []
     current_neighbs = set()
+    last_move = '--'
 
     # initialize game board of size n
     def __init__(self, n):
@@ -207,13 +199,6 @@ class Board:
         return self.board
 
     # adds new neighbors to set
-    #       +---+---+---+
-    #       | 5 | 4 | 3 |
-    #       +---+---+---+
-    #       | 6 | X | 2 |
-    #       +---+---+---+
-    #       | 7 | 0 | 1 |
-    #       +---+---+---+
     def get_neighbors(self, col, row):
         # remove tile if currently in list of available neighbors
         if (col, row) in self.current_neighbs:
@@ -226,6 +211,27 @@ class Board:
         #     if self.get_tile(c, r) is BLANK:
         #         self.current_neighbs.add((c, r))
         self.current_neighbs.update(self.get_boundary_list(col, row, True))
+
+    def check_move(self, col, row, color):
+        # check move is into valid neighbor space
+        if (col, row) not in self.current_neighbs:
+            logger.debug('%s not in current_neighbs' % str((col, row)))
+            self.print_list(self.current_neighbs)
+            return -1
+        else:
+            # check for disks in straight lines
+            scores = self.check_bounds(col, row, color[0])
+            self.last_move = self.display_move(col, row)
+
+            # if len(scores) > 1:
+            return scores
+            #     logger.debug('no valid score from move')
+            #     return False
+            # else:
+            #     self.current_player.current_move = scores
+            #     self.current_player.score += len(scores) - 1
+            #     return True
+
 
     # set move on board + update color, neighbor lists
     def set_move(self, move, color):
@@ -290,6 +296,7 @@ class Board:
 
         return list(scores)
 
+    # TODO may want to loop through light / dark lists to look for tiles in lines
     # check current neighbors for best possible move
     def make_move(self, b_color):
         scores = []
@@ -300,7 +307,10 @@ class Board:
             if len(move) > 1:
                 scores.append(move)
 
-        rand = randrange(self.size)
+        rand = random.randrange(len(scores))
+        # TODO fix, probably not correct
+        print 'scores[rand] : %s' % str(scores[rand][0][0])
+        self.last_move = self.display_move(scores[rand][0][0], scores[rand][0][1])
         return scores[rand]
         #     score = 0
         #     move = []
@@ -360,6 +370,12 @@ class Board:
 
         return bounds
 
+    # def get_valid_lines(self, col, row):
+    #     valid_lines = set()
+    #     for c, r in self.current_neighbs:
+    #         if c is col or r is row or c - col is r - row:
+    #             valid_lines.add((col, row))
+
     # displays Reversi game board on screen with ASCII art
     def display_board(self):
         print '     a',
@@ -377,6 +393,10 @@ class Board:
     def print_line(self):
         line = '\n   +' + '---+' * self.size
         print line[0:self.size * len(line)]
+
+    # returns string representation of move ( ie 'a1', 'd3' )
+    def display_move(self, col, row):
+        return str(chr(ord('a') + col) + str(row + 1))
 
     def print_list(self, l):
         logger.debug('list contents ( %d items ) :' % len(l))
