@@ -59,12 +59,6 @@ class Reversi:
         else:
             self.current_player = self.computer
 
-    def opp_player(self):
-        if self.current_player is self.computer:
-            return self.human
-        else:
-            return self.computer
-
     # prompts opponent for a move
     def get_move(self):
         scores = []
@@ -85,8 +79,6 @@ class Reversi:
             scores = self.board.check_move(col, row, self.current_player.color[0])
             if len(scores) > 1:
                 valid = True
-                # self.current_player.current_move = scores
-                # self.current_player.score += len(scores) - 1
         else:
             logger.debug('not char or num')
         while not char or not num or not valid:
@@ -105,15 +97,13 @@ class Reversi:
             row = self.board.get_row_num(move[1])
 
             # check row, col in size range
-            char = col < self.size
-            num = row < self.size
+            char = col in range(self.size)
+            num = row in range(self.size)
 
             if char and num:
                 scores = self.board.check_move(col, row, self.current_player.color[0])
                 if len(scores) > 1:
                     valid = True
-                    # self.current_player.current_move = scores
-                    # self.current_player.score += len(scores) - 1
         return scores
 
     # initializes game play with opponent
@@ -157,6 +147,12 @@ class Board:
         self.size = n
         self.board = self.init_board()
 
+    # def __init__(self, n=8, board=Board.init_board(), light=set(), dark=set(), current_neighbs=set(), last_move='--'):
+    #     self.size = n
+    #     self.board = board
+        # self.board = self.init_board()
+
+    # returns deep copy of current game board
     def copy(self):
         copy_board = Board()
         copy_board.size = self.size
@@ -216,8 +212,6 @@ class Board:
         self.update_neighbors(center_1, center_2)
         self.update_neighbors(center_2, center_1)
 
-        self.print_tiles()
-
         return self.board
 
     # adds new neighbors to set
@@ -227,7 +221,6 @@ class Board:
                 self.current_neighbs.remove((col, row))
         # update neighbor list with new blank boundary tiles
         self.current_neighbs.update(self.get_boundary_list(col, row, True))
-
 
     # check move is into valid neighbor space
     def check_move(self, col, row, color):
@@ -249,11 +242,6 @@ class Board:
     #       +---+---+---+
     #       | 7 | 0 | 1 |
     #       +---+---+---+
-    # TODO check if its valid to have move setting disk next to disk of same color to make line
-    # TODO that would flip at least one disk, I think it's valid, so need to update code
-    # TODO ******* also still not updating all tiles in line although updates score
-    # TODO **** look for any neighbors in lines and traverse to those points looking for opp or blank
-    # TODO traverse boundary tiles that aren't blank until reaching another blank and check at least 1 opp tile
     def check_bounds(self, col, row, b_color):
         scores = {(col, row)}
         # scores = [(col, row)]
@@ -292,7 +280,6 @@ class Board:
 
         return list(scores)
 
-    # TODO may want to loop through light / dark lists to look for tiles in lines
     # check current neighbors for best possible move
     def make_move(self, b_color):
         scores = []
@@ -314,7 +301,7 @@ class Board:
 
         return best_move
 
-
+    # use minimax algorithm to find next best move
     def get_minimax(self, b_color):
         my_moves = []
         min_moves = []
@@ -363,7 +350,7 @@ class Board:
 
         return max_move.scores
 
-     # set move on board + update color, neighbor lists
+    # set move on board + update color, neighbor lists
     def set_move(self, scores, color):
         for col, row in scores:
             # logger.debug('move  : %s,   color : %s' % (str((col, row)), color))
@@ -397,24 +384,29 @@ class Board:
             self.update_neighbors(col, row)
         # return player
 
+    # returns opposite disk color
     def get_opp_color(self, color):
         if color is LIGHT:
             return DARK
         else:
             return LIGHT
 
+    # returns column letter from index value
     def get_col_num(self, col):
         return ord(col) - 97
 
+    # returns integer row number from index value
     def get_row_num(self, row):
         return int(row) - 1
 
+    # returns disk list for specified color
     def get_disk_list(self, color):
         if color is LIGHT:
             return self.light
         else:
             return self.dark
 
+    # returns list containing coordinates for bounding tiles
     def get_boundary_list(self, col, row, blank):
         bounds = []
 
@@ -430,7 +422,7 @@ class Board:
         if col + 1 in range(self.size) and row - 1 in range(self.size) and self.is_blank(col + 1, row - 1) is blank:
             bounds.append((col + 1, row - 1))
 
-        if col - 1 in range(self.size) and self.is_blank(col - 1, row) is not BLANK:
+        if col - 1 in range(self.size) and self.is_blank(col - 1, row) is blank:
             bounds.append((col - 1, row))
 
         if col - 1 in range(self.size) and row + 1 in range(self.size) and self.is_blank(col - 1, row + 1) is blank:
@@ -466,12 +458,14 @@ class Board:
     def display_move(self, col, row):
         return str(chr(ord('a') + col) + str(row + 1))
 
+    # print contents of specific list, formatted for col, row
     def print_list(self, l):
         logger.debug('list contents ( %d items ) :' % len(l))
         for col, row in l:
             logger.debug(str((col, row)) + '  ' + str(chr(ord('a') + col)) + '' + str(row + 1))
 
-    def print_tiles(self):
+    # print all disks in light + dark lists
+    def print_disks(self):
         logger.debug('light : ')
         for col, row in self.light:
             logger.debug(str((col, row)) + '  ' + str(self.get_tile(col, row)))
@@ -494,11 +488,10 @@ class Player:
         self.type = t
 
 
+# class to represent a move on the board
 class Move:
     scores = []
     opp_moves = []
-    # light = []
-    # dark = []
 
     def __init__(self, color, current_board):
         self.color = color
@@ -523,7 +516,7 @@ def main():
                            help='specify to play with light colors, default is dark colors')
     args = parseargs.parse_args()
 
-    if args.size < 4 or args.size > 27 or args.size % 2 is not 0:
+    if args.size not in range(4, 27, 2):
         exit_msg('Invalid board size : %d' % args.size)
 
     # create + start a new Reversi game
