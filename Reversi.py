@@ -69,7 +69,7 @@ class Reversi:
         move = raw_input('play < move > : ')
         # get integer coordinate values
         col = self.board.get_col_num(move[0])
-        row = self.board.get_row_num(move[1])
+        row = self.board.get_row_num(move[1:])
 
         # check column is character in range for board size
         char = col in range(self.size)
@@ -96,7 +96,7 @@ class Reversi:
 
             # get integer coordinate values
             col = self.board.get_col_num(move[0])
-            row = self.board.get_row_num(move[1])
+            row = self.board.get_row_num(move[1:])
 
             # check row, col in size range
             char = col in range(self.size)
@@ -133,6 +133,10 @@ class Reversi:
             # self.current_player.score += len(self.current_player.current_move) - 1
             # self.board.set_move(self.current_player.current_move, self.current_player.color[0])
             self.switch_player()
+
+            # TODO figure out how to tell when there's no more valid moves
+            # if len(self.board.valid_moves) < 1:
+            #     self.playing = False
 
 
 # class to simulate a Reversi game board of given size
@@ -248,39 +252,55 @@ class Board:
         # loop through neighbors and check for valid move
         for c, r in self.get_boundary_list(col, row, False):
             move = []
-            c_next = c - col
-            r_next = r - row
+            c_next = 0
+            r_next = 0
 
             if self.get_tile(c, r) is opp_color:
                 move.append((c, r))
+                c_next += c - col
+                r_next += r - row
+                # logger.debug('appending %s' % self.display_move(c, r))
+                # logger.debug('c_next, r_next %s' % self.display_move(c + c_next, r + r_next))
+                # logger.debug('next tile %s, opp_color %s' % (self.get_tile(c + c_next, r + r_next), opp_color))
+                # logger.debug('next tile = opp_color %s' % str(self.get_tile(c + c_next, r + r_next) is opp_color))
 
             while c + c_next in range(self.size) and r + r_next in range(self.size) \
-                    and self.get_tile(c + c_next, r + r_next) is not BLANK:
+                    and self.get_tile(c + c_next, r + r_next) is opp_color:
+                    # and self.get_tile(c + c_next, r + r_next) is not BLANK:
                 # add any tiles that need to be flipped
-                if self.get_tile(c + c_next, r + r_next) is opp_color:
-                    move.append((c + c_next, r + r_next))
+                # if self.get_tile(c + c_next, r + r_next) is opp_color:
+                move.append((c + c_next, r + r_next))
+                # logger.debug('appending %s' % self.display_move(c, r))
                 c_next += c - col
                 r_next += r - row
             # check that move is bounded + flipped at least 1 tile
-            if self.get_tile(c + c_next - (c - col), r + r_next - (r - row)) is b_color and len(move) > 0:
+            # logger.debug('-=c_next, -=r_next %s' % self.display_move(c + c_next - (c - col), r + r_next - (r - row)))
+            # if self.get_tile(c + c_next - (c - col), r + r_next - (r - row)) is b_color and len(move) > 0:
+            if c + c_next in range(self.size) and r + r_next in range(self.size) \
+                    and self.get_tile(c + c_next, r + r_next) is b_color and len(move) > 0:
+                # logger.debug('scores : %d' % len(scores))
                 scores.update(move)
 
         return list(scores)
 
     # check current neighbors for best possible move
     def make_move(self, b_color):
+        best_scores = []
         best_move = []
 
         # check all available tiles to place a disk + pick best move
         for c, r in self.current_neighbs:
             move = self.check_bounds(c, r, b_color)
-            if len(move) > len(best_move):
-                best_move = move
+            if len(move) > len(best_scores):
+                best_scores = move
+                best_move = (c, r)
 
         # best_move = self.get_minimax(b_color)
-        self.last_move = self.display_move(best_move[0][0], best_move[0][1])
+        self.print_list(best_scores)
+        logger.debug(str(best_move))
+        self.last_move = self.display_move(best_move[0], best_move[1])
 
-        return best_move
+        return best_scores
 
     # use minimax algorithm to find next best move
     def get_minimax(self, b_color):
@@ -392,7 +412,7 @@ class Board:
     def get_boundary_list(self, col, row, blank):
         bounds = []
 
-        if row + 1 in range(self.size) and self.is_blank(col, row - 1) is blank:
+        if row - 1 in range(self.size) and self.is_blank(col, row - 1) is blank:
             bounds.append((col, row - 1))
 
         if col + 1 in range(self.size) and self.is_blank(col + 1, row) is blank:
@@ -424,12 +444,12 @@ class Board:
 
     # displays Reversi game board on screen with ASCII art
     def display_board(self):
-        print '     a',
+        print '      a',
         for c in range(self.size - 1):
             print '  ' + chr(ord('b') + c),
         self.print_line()
         for r in range(self.size):
-            print ' ' + str(r + 1) + ' |',
+            print ' ' + str(r + 1).ljust(2) + ' |',
             for c in range(self.size):
                 print self.get_tile(c, r) + ' |',
             self.print_line()
@@ -437,7 +457,7 @@ class Board:
 
     # prints a horizontal line of dashes + pluses
     def print_line(self):
-        line = '\n   +' + '---+' * self.size
+        line = '\n    +' + '---+' * self.size
         print line[0:self.size * len(line)]
 
     # returns string representation of move ( ie 'a1', 'd3' )
