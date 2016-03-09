@@ -250,8 +250,10 @@ class Board:
             move = []
             c_next = c - col
             r_next = r - row
+
             if self.get_tile(c, r) is opp_color:
                 move.append((c, r))
+
             while c + c_next in range(self.size) and r + r_next in range(self.size) \
                     and self.get_tile(c + c_next, r + r_next) is not BLANK:
                 # add any tiles that need to be flipped
@@ -267,7 +269,6 @@ class Board:
 
     # check current neighbors for best possible move
     def make_move(self, b_color):
-        scores = []
         best_move = []
 
         # check all available tiles to place a disk + pick best move
@@ -275,11 +276,6 @@ class Board:
             move = self.check_bounds(c, r, b_color)
             if len(move) > len(best_move):
                 best_move = move
-            # if len(move) > 1:
-            #     scores.append(move)
-        # rand = random.randrange(len(scores))
-        # print 'scores[rand] : %s' % str(scores[rand][0][0])
-        # self.last_move = self.display_move(scores[rand][0][0], scores[rand][0][1])
 
         # best_move = self.get_minimax(b_color)
         self.last_move = self.display_move(best_move[0][0], best_move[0][1])
@@ -330,7 +326,7 @@ class Board:
                 max_move = move
 
         # set move as last move
-        logger.debug('best_move : %s' % str((max_move.scores[0][0], max_move.scores[0][1])))
+        # logger.debug('best_move : %s' % str((max_move.scores[0][0], max_move.scores[0][1])))
         # self.last_move = self.display_move(max_move.scores[0][0], max_move.scores[0][1])
 
         return max_move.scores
@@ -338,7 +334,7 @@ class Board:
     # set move on board + update color, neighbor lists
     def set_move(self, scores, color):
         for col, row in scores:
-            logger.debug('move  : %s,   color : %s' % (str((col, row)), color))
+            # logger.debug('move  : %s,   color : %s' % (str((col, row)), color))
             # self.display_board()
             # self.print_disks()
             if color is LIGHT:
@@ -402,19 +398,23 @@ class Board:
         if col + 1 in range(self.size) and self.is_blank(col + 1, row) is blank:
             bounds.append((col + 1, row))
 
-        if col + 1 in range(self.size) and row + 1 in range(self.size) and self.is_blank(col + 1, row + 1) is blank:
+        if col + 1 in range(self.size) and row + 1 in range(self.size) \
+                and self.is_blank(col + 1, row + 1) is blank:
             bounds.append((col + 1, row + 1))
 
-        if col + 1 in range(self.size) and row - 1 in range(self.size) and self.is_blank(col + 1, row - 1) is blank:
+        if col + 1 in range(self.size) and row - 1 in range(self.size) \
+                and self.is_blank(col + 1, row - 1) is blank:
             bounds.append((col + 1, row - 1))
 
         if col - 1 in range(self.size) and self.is_blank(col - 1, row) is blank:
             bounds.append((col - 1, row))
 
-        if col - 1 in range(self.size) and row + 1 in range(self.size) and self.is_blank(col - 1, row + 1) is blank:
+        if col - 1 in range(self.size) and row + 1 in range(self.size) \
+                and self.is_blank(col - 1, row + 1) is blank:
             bounds.append((col - 1, row + 1))
 
-        if col - 1 in range(self.size) and row - 1 in range(self.size) and self.is_blank(col - 1, row - 1) is blank:
+        if col - 1 in range(self.size) and row - 1 in range(self.size) \
+                and self.is_blank(col - 1, row - 1) is blank:
             bounds.append((col - 1, row - 1))
 
         if row + 1 in range(self.size) and self.is_blank(col, row + 1) is blank:
