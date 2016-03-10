@@ -255,9 +255,6 @@ class Board:
 
             while c + c_next in range(self.size) and r + r_next in range(self.size) \
                     and self.get_tile(c + c_next, r + r_next) is opp_color:
-                    # and self.get_tile(c + c_next, r + r_next) is not BLANK:
-                # add any tiles that need to be flipped
-                # if self.get_tile(c + c_next, r + r_next) is opp_color:
                 move.append((c + c_next, r + r_next))
                 c_next += c - col
                 r_next += r - row
@@ -265,7 +262,12 @@ class Board:
             if c + c_next in range(self.size) and r + r_next in range(self.size) \
                     and self.get_tile(c + c_next, r + r_next) is b_color and len(move) > 0:
                 scores.update(move)
-                # logger.debug('scores %s' % (self.display_move(col, row)))
+                # logger.debug('valid scores for %s' % (self.display_move(col, row)))
+            if len(scores) > 1:
+                logger.debug('boundary for ( %s, %s ) -' % (self.display_move(col, row), opp_color))
+                self.print_list(self.get_boundary_list(col, row, b_color))
+                logger.debug('scores   for ( %s, %s ) -' % (self.display_move(col, row), opp_color))
+                self.print_list(scores)
 
         scores = list(scores)
         scores.insert(0, (col, row))
@@ -290,49 +292,53 @@ class Board:
 
     # use minimax algorithm to find next best move
     def get_minimax(self, b_color):
-        my_moves = []
         min_moves = []
         opp_color = self.get_opp_color(b_color)
-
         init_board = copy.deepcopy(self)
 
         # find all available moves
         for c, r in self.current_neighbs.copy():
-            move = Move(b_color, init_board)
-            move.board.light = init_board.light.copy()
-            move.board.dark = init_board.dark.copy()
+            alpha = Move(b_color, init_board)
+            alpha.board.light = init_board.light.copy()
+            alpha.board.dark = init_board.dark.copy()
 
-            move.scores = move.board.check_bounds(c, r, b_color)
-            if len(move.scores) > 1:
-                move.board.set_move(move.scores, move.color)
-                best_opp_move = move
+            alpha.scores = alpha.board.check_bounds(c, r, b_color)
+            alpha.score = len(alpha.board.get_disk_list(b_color))
+
+            if len(alpha.scores) > 1:
+                alpha.board.set_move(alpha.scores, alpha.color)
+                beta = alpha
 
                 # find all possible opposing moves + add to move
-                for c_i, r_i in move.board.current_neighbs.copy():
-                    opp_move = Move(opp_color, move.board)
+                for c_i, r_i in alpha.board.current_neighbs.copy():
+                    opp_move = Move(opp_color, alpha.board)
                     opp_move.scores = opp_move.board.check_bounds(c_i, r_i, opp_color)
 
                     # check for valid move
                     if len(opp_move.scores) > 1:
-                        move.opp_moves.append(opp_move)
+                        alpha.opp_moves.append(opp_move)
                         opp_move.score = len(opp_move.board.get_disk_list(b_color)) + len(opp_move.scores)
 
                         # check if move is minimum
-                        if opp_move.score < best_opp_move.score:
-                            best_opp_move = opp_move
+                        if opp_move.score < beta.score:
+                            beta = opp_move
                 # add move to list of min opponent moves
-                min_moves.append(best_opp_move)
+                # min_moves.append(beta)
+                # alpha-beta pruning
+                if alpha.score >= beta.score:
+                    break
 
         # look for max of mins
-        max_move = min_moves[0]
-        for move in min_moves:
-            if len(move.board.get_disk_list(b_color)) > len(max_move.board.get_disk_list(b_color)):
-                max_move = move
+        # max_move = min_moves[0]
+        # for alpha in min_moves:
+        #     if len(alpha.board.get_disk_list(b_color)) > len(max_move.board.get_disk_list(b_color)):
+        #         max_move = alpha
 
         # set move as last move
-        self.last_move = self.display_move(max_move.scores[0][0], max_move.scores[0][1])
+        self.last_move = self.display_move(alpha.scores[0][0], alpha.scores[0][1])
+        # self.last_move = self.display_move(max_move.scores[0][0], max_move.scores[0][1])
 
-        return max_move.scores
+        return alpha.scores
 
     # set move on board + update color, neighbor lists
     def set_move(self, scores, color):
@@ -390,39 +396,31 @@ class Board:
     def get_boundary_list(self, col, row, color):
         bounds = []
 
-        # if row - 1 in range(self.size) and self.is_blank(col, row - 1) is blank:
         if row - 1 in range(self.size) and self.get_tile(col, row - 1) is color:
             bounds.append((col, row - 1))
 
-        # if col + 1 in range(self.size) and self.is_blank(col + 1, row) is blank:
         if col + 1 in range(self.size) and self.get_tile(col + 1, row) is color:
             bounds.append((col + 1, row))
 
         if col + 1 in range(self.size) and row + 1 in range(self.size) \
                 and self.get_tile(col + 1, row + 1) is color:
-                # and self.is_blank(col + 1, row + 1) is blank:
             bounds.append((col + 1, row + 1))
 
         if col + 1 in range(self.size) and row - 1 in range(self.size) \
                 and self.get_tile(col + 1, row - 1) is color:
-                # and self.is_blank(col + 1, row - 1) is blank:
             bounds.append((col + 1, row - 1))
 
-        # if col - 1 in range(self.size) and self.is_blank(col - 1, row) is blank:
         if col - 1 in range(self.size) and self.get_tile(col - 1, row) is color:
             bounds.append((col - 1, row))
 
         if col - 1 in range(self.size) and row + 1 in range(self.size) \
                 and self.get_tile(col - 1, row + 1) is color:
-                # and self.is_blank(col - 1, row + 1) is blank:
             bounds.append((col - 1, row + 1))
 
         if col - 1 in range(self.size) and row - 1 in range(self.size) \
                 and self.get_tile(col - 1, row - 1) is color:
-                # and self.is_blank(col - 1, row - 1) is blank:
             bounds.append((col - 1, row - 1))
 
-        # if row + 1 in range(self.size) and self.is_blank(col, row + 1) is blank:
         if row + 1 in range(self.size) and self.get_tile(col, row + 1) is color:
             bounds.append((col, row + 1))
 
@@ -452,7 +450,7 @@ class Board:
 
     # print contents of specific list, formatted for col, row
     def print_list(self, l):
-        logger.debug('list contents ( %d items ) :' % len(l))
+        # logger.debug('list contents ( %d items ) :' % len(l))
         for col, row in l:
             logger.debug(str((col, row)) + '  ' + str(chr(ord('a') + col)) + '' + str(row + 1))
 
