@@ -209,7 +209,11 @@ class Board:
             self.current_neighbs.remove((col, row))
         # update neighbor list with new blank boundary tiles
         # self.current_neighbs.update(self.get_boundary_list(col, row, True))
+        # logger.debug('update neighbs %s(%d, %d)' % (self.display_move(col, row), col, row))
+        # self.print_list(self.get_boundary_list(col, row, BLANK))
         self.current_neighbs.update(self.get_boundary_list(col, row, BLANK))
+        # logger.debug('neighbs after')
+        # self.print_list(self.board.current_neighbs)
 
     # check move is into valid neighbor space
     def check_move(self, col, row, color):
@@ -220,14 +224,7 @@ class Board:
             self.last_move = self.display_move(col, row)
         return scores
 
-    # checks bounds for line of bounded opponent disks
-    #       +---+---+---+
-    #       |   |   |   |
-    #       +---+---+---+
-    #       | L | X |   |
-    #       +---+---+---+
-    #       | D | D |   |
-    #       +---+---+---+
+    # checks tile bounds for line of bounded opponent disks
     def check_bounds(self, col, row, b_color):
         scores = set()
         opp_color = self.get_opp_color(b_color)
@@ -255,9 +252,9 @@ class Board:
                 scores.update(move)
                 # logger.debug('valid scores for %s' % (self.display_move(col, row)))
             if len(scores) > 1:
-                logger.debug('boundary for ( %s, %s ) -' % (self.display_move(col, row), opp_color))
-                self.print_list(self.get_boundary_list(col, row, b_color))
-                logger.debug('scores   for ( %s, %s ) -' % (self.display_move(col, row), opp_color))
+                # logger.debug('boundary for ( %s, %s ) -' % (self.display_move(col, row), opp_color))
+                # self.print_list(self.get_boundary_list(col, row, b_color))
+                logger.debug('scores  %s (%s) -' % (self.display_move(col, row), opp_color))
                 self.print_list(scores)
 
         scores = list(scores)
@@ -268,16 +265,19 @@ class Board:
     # check current neighbors for best possible move
     def make_move(self, b_color):
         # best_scores = []
-        # best_move = []
+        # best_moves = []
         # check all available tiles to place a disk + pick best move
         # for c, r in self.current_neighbs:
         #     move = self.check_bounds(c, r, b_color)
-        #     if len(move) > len(best_scores):
-        #         best_scores = move
+        #     if len(move) > len(best_moves):
+        #         best_moves = move
         #         best_move = (c, r)
 
         best_move = self.get_minimax(b_color)
         self.last_move = self.display_move(best_move[0][0], best_move[0][1])
+        # logger.debug('last_move : %s' % self.last_move)
+        # self.print_list(best_move)
+        # self.last_move = self.display_move(best_move[0], best_move[1])
 
         return best_move
 
@@ -285,22 +285,28 @@ class Board:
     def get_minimax(self, b_color):
         opp_color = self.get_opp_color(b_color)
         init_board = copy.deepcopy(self)
+        best_moves = []
 
         # find all available moves
         for c, r in self.current_neighbs.copy():
             alpha = Move(b_color, init_board)
             alpha.board.light = init_board.light.copy()
             alpha.board.dark = init_board.dark.copy()
+            alpha.board.current_neighbs = init_board.current_neighbs.copy()
 
-            alpha.scores = alpha.board.check_bounds(c, r, b_color)
+            alpha.scores = list(alpha.board.check_bounds(c, r, b_color))
             alpha.score = len(alpha.board.get_disk_list(b_color))
 
+            # TODO not returning correct score from in here
             if len(alpha.scores) > 1:
+                logger.debug('alpha move     %s(%d, %d) ' % (self.display_move(alpha.scores[0][0], alpha.scores[0][1]), alpha.scores[0][0], alpha.scores[0][1]))
+                self.print_list(alpha.scores)
+
                 alpha.board.set_move(alpha.scores, alpha.color)
                 beta = alpha
-                logger.debug('beta : %d' % beta.score)
-                logger.debug('alpha neighbs : ')
-                self.print_list(alpha.board.current_neighbs)
+                # logger.debug('beta : %d, alpha : %d' % (beta.score, alpha.score))
+                # logger.debug('alpha neighbs ( %d ) : ' % len(alpha.board.current_neighbs))
+                # self.print_list(alpha.board.current_neighbs)
 
                 # find all possible opposing moves + add to move
                 for c_i, r_i in alpha.board.current_neighbs.copy():
@@ -309,6 +315,9 @@ class Board:
 
                     # check for valid move
                     if len(opp_move.scores) > 1:
+                        logger.debug('beta move      %s(%d, %d)' % (self.display_move(opp_move.scores[0][0], opp_move.scores[0][1]), opp_move.scores[0][0], opp_move.scores[0][1]))
+                        self.print_list(opp_move.scores)
+
                         alpha.opp_moves.append(opp_move)
                         opp_move.score = len(opp_move.board.get_disk_list(b_color)) + len(opp_move.scores)
 
@@ -319,18 +328,34 @@ class Board:
                             logger.debug('beta : %d' % beta.score)
                 # alpha-beta pruning
                 if alpha.score >= beta.score:
-                    break
+                    best_moves.append(alpha.scores)
+
+                # choose a move in the corners when available
+                # corners = {(0, 0), (0, self.size - 1), (self.size - 1, 0), (self.size - 1, self.size - 1)}
+                # if (c, r) in corners:
+                #     break
+
+        minimax = best_moves[0]
+        for move in best_moves:
+            if len(move) > len(minimax):
+                minimax = move
 
         # set last move
-        self.last_move = self.display_move(alpha.scores[0][0], alpha.scores[0][1])
+        # TODO never set alpha.scores
+        self.last_move = self.display_move(minimax[0][0], minimax[0][1])
+        # self.last_move = self.display_move(alpha.scores[0][0], alpha.scores[0][1])
+        # logger.debug('last_move : %s' % self.last_move)
+        # self.print_list(alpha.scores)
 
-        return alpha.scores
+        return minimax
+        # return alpha.scores
 
     # set move on board + update color, neighbor lists
     def set_move(self, scores, color):
         for col, row in scores:
             # update board + neighbors
             self.set_tile(col, row, color)
+            logger.debug('set_move       %s%s' % (self.display_move(col, row), str((col, row))))
             self.update_neighbors(col, row)
 
             if self.get_tile(col, row) is LIGHT:
