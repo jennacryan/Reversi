@@ -49,10 +49,7 @@ class Reversi:
     def display_info(self):
         print 'Move played: ' + self.board.last_move
         print self.current_player.color + ' player ( ' + self.current_player.type + ' ) plays now'
-        # print 'Score: ' + self.computer.color + ' ' + str(self.computer.score) \
-        #       + ' - ' + self.human.color + ' ' + str(self.human.score)
         print 'Score: Light ' + str(len(self.board.light)) + ' - Dark ' + str(len(self.board.dark))
-        # logger.debug('score from tiles : light : %d, dark : %d' % (len(self.board.light), len(self.board.dark)))
 
     # switches current player from human to computer or vice versa
     def switch_player(self):
@@ -81,16 +78,8 @@ class Reversi:
             scores = self.board.check_move(col, row, self.current_player.color[0])
             if len(scores) > 1:
                 valid = True
-        else:
-            logger.debug('not char or num')
-        while not char or not num or not valid:
-            if not char:
-                logger.debug('not char')
-            elif not num:
-                logger.debug('not num')
-            elif not valid:
-                logger.debug('not valid')
 
+        while not char or not num or not valid:
             valid = False
             move = raw_input('Invalid move : ' + move + '\nplay < letter >< number > : ')
 
@@ -114,25 +103,27 @@ class Reversi:
         logger.info('')
         self.playing = True
         self.board.init_game()
+        self.board.display_board()
+        self.display_info()
         # start a new game
         while self.playing:
-            self.board.display_board()
-            self.display_info()
-
             # check if we want to prompt for a move or make one ourselves
-            if self.current_player is self.human:
+            if self.current_player is self.human and self.board.valid_moves(self.current_player.color[0]):
                 self.current_player.current_move = self.get_move()
             else:
-                # self.current_player.current_move = self.board.get_minimax(self.current_player.color[0])
                 self.current_player.current_move = self.board.make_move(self.current_player.color[0])
 
-            # increment score, set move on game board + switch players
+            # increment score, set move on game board + switch current player
             self.board.set_move(self.current_player.current_move, self.current_player.color[0])
             self.switch_player()
 
             # check for valid moves left in game
             if self.board.no_valid_moves():
+                logger.debug('No more moves, game over!')
                 self.playing = False
+
+            self.board.display_board()
+            self.display_info()
 
 
 # class to simulate a Reversi game board of given size
@@ -292,7 +283,6 @@ class Board:
 
     # use minimax algorithm to find next best move
     def get_minimax(self, b_color):
-        min_moves = []
         opp_color = self.get_opp_color(b_color)
         init_board = copy.deepcopy(self)
 
@@ -308,6 +298,9 @@ class Board:
             if len(alpha.scores) > 1:
                 alpha.board.set_move(alpha.scores, alpha.color)
                 beta = alpha
+                logger.debug('beta : %d' % beta.score)
+                logger.debug('alpha neighbs : ')
+                self.print_list(alpha.board.current_neighbs)
 
                 # find all possible opposing moves + add to move
                 for c_i, r_i in alpha.board.current_neighbs.copy():
@@ -322,21 +315,14 @@ class Board:
                         # check if move is minimum
                         if opp_move.score < beta.score:
                             beta = opp_move
-                # add move to list of min opponent moves
-                # min_moves.append(beta)
+                            # beta.score = opp_move.score
+                            logger.debug('beta : %d' % beta.score)
                 # alpha-beta pruning
                 if alpha.score >= beta.score:
                     break
 
-        # look for max of mins
-        # max_move = min_moves[0]
-        # for alpha in min_moves:
-        #     if len(alpha.board.get_disk_list(b_color)) > len(max_move.board.get_disk_list(b_color)):
-        #         max_move = alpha
-
-        # set move as last move
+        # set last move
         self.last_move = self.display_move(alpha.scores[0][0], alpha.scores[0][1])
-        # self.last_move = self.display_move(max_move.scores[0][0], max_move.scores[0][1])
 
         return alpha.scores
 
@@ -359,7 +345,7 @@ class Board:
                 # add to dark list
                 self.dark.add((col, row))
 
-    #  checks for valid moves for given color
+    #  checks if no valid moves left in game
     def no_valid_moves(self):
         no_moves = True
         for c, r in self.current_neighbs:
@@ -369,6 +355,16 @@ class Board:
                 no_moves = False
 
         return no_moves
+
+    #  checks for valid moves for given color
+    def valid_moves(self, color):
+        moves = False
+        for c, r in self.current_neighbs:
+            move = self.check_bounds(c, r, color)
+            if len(move) > 1:
+                moves = True
+
+        return moves
 
     # returns opposite disk color
     def get_opp_color(self, color):
@@ -444,7 +440,7 @@ class Board:
         line = '\n   +' + '---+' * self.size
         print line[0:self.size * len(line)]
 
-    # returns string representation of move ( ie 'a1', 'd3' )
+    # returns string representation of move ( ie ( 4, 3 ) => 'd3' )
     def display_move(self, col, row):
         return str(chr(ord('a') + col) + str(row + 1))
 
@@ -486,7 +482,6 @@ class Move:
 
     def __init__(self, color, current_board):
         self.color = color
-        # self.board = current_board
         self.board = copy.deepcopy(current_board)
 
 
