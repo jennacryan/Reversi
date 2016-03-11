@@ -118,12 +118,15 @@ class Reversi:
             self.switch_player()
 
             # check for valid moves left in game
-            if self.board.no_valid_moves():
-                logger.debug('No more moves, game over!')
-                self.playing = False
+            # if self.board.no_valid_moves():
+            #     logger.debug('No more moves, game over!')
+            #     self.playing = False
 
             self.board.display_board()
             self.display_info()
+
+            if len(self.board.current_neighbs) < 1:
+                self.playing = False
 
 
 # class to simulate a Reversi game board of given size
@@ -228,10 +231,11 @@ class Board:
     def check_bounds(self, col, row, b_color):
         scores = set()
         opp_color = self.get_opp_color(b_color)
+        bounds = self.get_boundary_list(col, row, opp_color)
 
         # loop through neighbors and check for valid move
         # for c, r in self.get_boundary_list(col, row, False):
-        for c, r in self.get_boundary_list(col, row, opp_color):
+        for c, r in bounds:
             move = []
             c_next = 0
             r_next = 0
@@ -251,11 +255,11 @@ class Board:
                     and self.get_tile(c + c_next, r + r_next) is b_color and len(move) > 0:
                 scores.update(move)
                 # logger.debug('valid scores for %s' % (self.display_move(col, row)))
-            if len(scores) > 1:
+            # if len(scores) > 1:
                 # logger.debug('boundary for ( %s, %s ) -' % (self.display_move(col, row), opp_color))
                 # self.print_list(self.get_boundary_list(col, row, b_color))
-                logger.debug('scores  %s (%s) -' % (self.display_move(col, row), opp_color))
-                self.print_list(scores)
+                # logger.debug('scores  %s (%s) -' % (self.display_move(col, row), opp_color))
+                # self.print_list(scores)
 
         scores = list(scores)
         scores.insert(0, (col, row))
@@ -283,65 +287,73 @@ class Board:
 
     # use minimax algorithm to find next best move
     def get_minimax(self, b_color):
+        alpha = -9223372036854775807
+        beta = 9223372036854775807
         opp_color = self.get_opp_color(b_color)
         init_board = copy.deepcopy(self)
         best_moves = []
+        minimax = self.check_bounds(self.current_neighbs.copy().pop()[0], self.current_neighbs.copy().pop()[1], b_color)
 
         # find all available moves
         for c, r in self.current_neighbs.copy():
-            alpha = Move(b_color, init_board)
-            alpha.board.light = init_board.light.copy()
-            alpha.board.dark = init_board.dark.copy()
-            alpha.board.current_neighbs = init_board.current_neighbs.copy()
+            my_moves = Move(b_color, init_board)
+            my_moves.board.light = init_board.light.copy()
+            my_moves.board.dark = init_board.dark.copy()
+            my_moves.board.current_neighbs = init_board.current_neighbs.copy()
 
-            alpha.scores = list(alpha.board.check_bounds(c, r, b_color))
-            alpha.score = len(alpha.board.get_disk_list(b_color))
+            my_moves.scores = list(my_moves.board.check_bounds(c, r, b_color))
+            my_moves.score = len(my_moves.board.get_disk_list(b_color))
 
-            # TODO not returning correct score from in here
-            if len(alpha.scores) > 1:
-                logger.debug('alpha move     %s(%d, %d) ' % (self.display_move(alpha.scores[0][0], alpha.scores[0][1]), alpha.scores[0][0], alpha.scores[0][1]))
-                self.print_list(alpha.scores)
+            # check for valid move
+            if len(my_moves.scores) > 1:
+                # logger.debug('alpha move     %s(%d, %d) ' % (self.display_move(my_moves.scores[0][0], my_moves.scores[0][1]), my_moves.scores[0][0], my_moves.scores[0][1]))
+                # self.print_list(my_moves.scores)
 
-                alpha.board.set_move(alpha.scores, alpha.color)
-                beta = alpha
-                # logger.debug('beta : %d, alpha : %d' % (beta.score, alpha.score))
-                # logger.debug('alpha neighbs ( %d ) : ' % len(alpha.board.current_neighbs))
-                # self.print_list(alpha.board.current_neighbs)
+                my_moves.board.set_move(my_moves.scores, my_moves.color)
+                # beta = alpha
 
-                # find all possible opposing moves + add to move
-                for c_i, r_i in alpha.board.current_neighbs.copy():
-                    opp_move = Move(opp_color, alpha.board)
+                # find all possible opposing moves
+                for c_i, r_i in my_moves.board.current_neighbs.copy():
+                    opp_move = Move(opp_color, my_moves.board)
                     opp_move.scores = opp_move.board.check_bounds(c_i, r_i, opp_color)
+                    # opp_move.board.display_board()
 
                     # check for valid move
                     if len(opp_move.scores) > 1:
-                        logger.debug('beta move      %s(%d, %d)' % (self.display_move(opp_move.scores[0][0], opp_move.scores[0][1]), opp_move.scores[0][0], opp_move.scores[0][1]))
-                        self.print_list(opp_move.scores)
+                        # logger.debug('beta move      %s(%d, %d)' % (self.display_move(opp_move.scores[0][0], opp_move.scores[0][1]), opp_move.scores[0][0], opp_move.scores[0][1]))
+                        # self.print_list(opp_move.scores)
 
-                        alpha.opp_moves.append(opp_move)
-                        opp_move.score = len(opp_move.board.get_disk_list(b_color)) + len(opp_move.scores)
+                        # alpha.opp_moves.append(opp_move)
+                        opp_move.score = len(opp_move.board.get_disk_list(b_color)) + len(my_moves.scores)
 
-                        # check if move is minimum
-                        if opp_move.score < beta.score:
+                        # alpha-beta pruning
+                        if opp_move.score < beta:
                             beta = opp_move
                             # beta.score = opp_move.score
-                            logger.debug('beta : %d' % beta.score)
-                # alpha-beta pruning
-                if alpha.score >= beta.score:
-                    best_moves.append(alpha.scores)
+                            # logger.debug('beta : %d' % beta)
+
+                        if alpha >= beta:
+                            minimax = my_moves.scores
+                            break
+                            # best_moves.append(alpha.scores)
+
+                if beta > alpha and beta is not 9223372036854775807:
+                    alpha = beta
+
+                beta = 9223372036854775807
 
                 # choose a move in the corners when available
-                # corners = {(0, 0), (0, self.size - 1), (self.size - 1, 0), (self.size - 1, self.size - 1)}
-                # if (c, r) in corners:
-                #     break
+                corners = {(0, 0), (0, self.size - 1), (self.size - 1, 0), (self.size - 1, self.size - 1)}
+                if (c, r) in corners:
+                    break
 
-        minimax = best_moves[0]
-        for move in best_moves:
-            if len(move) > len(minimax):
-                minimax = move
+        # if len(best_moves) > 0:
+        #     minimax = best_moves[0]
+        # for move in best_moves:
+        #     if len(move) > len(minimax):
+        #         minimax = move
 
         # set last move
-        # TODO never set alpha.scores
         self.last_move = self.display_move(minimax[0][0], minimax[0][1])
         # self.last_move = self.display_move(alpha.scores[0][0], alpha.scores[0][1])
         # logger.debug('last_move : %s' % self.last_move)
@@ -355,7 +367,7 @@ class Board:
         for col, row in scores:
             # update board + neighbors
             self.set_tile(col, row, color)
-            logger.debug('set_move       %s%s' % (self.display_move(col, row), str((col, row))))
+            # logger.debug('set_move       %s%s' % (self.display_move(col, row), str((col, row))))
             self.update_neighbors(col, row)
 
             if self.get_tile(col, row) is LIGHT:
